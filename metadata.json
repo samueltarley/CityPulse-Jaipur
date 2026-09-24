@@ -1,0 +1,8 @@
+{
+  "name": "Remix CityPulse Jaipur – जयपुर की नब्ज़",
+  "description": "Real-time AI-powered civic pulse, multi-modal incident intelligence, and municipal monitoring platform for the Pink City of Jaipur.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,197 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+@theme {
+  --font-display: "Rozha One", serif;
+  --font-body: "Mukta", sans-serif;
+
+  --color-jaipur-pink: #D9707E;
+  --color-rani-pink: #C2185B;
+  --color-blush-pink: #FDF0F2;
+  --color-rose-mist: #F8E1E5;
+  --color-deep-maroon: #0891B2;
+  --color-marigold: #F2A93B;
+  --color-ivory: #FFFAF5;
+}
+
+:root {
+  /* Day Palette (Clean Minimal Light Aqua & White Cards) */
+  --jaipur-pink: #D9707E;
+  --jaipur-terracotta: #D9707E;
+  --jaipur-terracotta-deep: #C2185B;
+  --jaipur-terracotta-light: #F0FCFD;
+  --jaipur-rani: #C2185B;
+  --jaipur-maroon: #0891B2;
+  --jaipur-heading: #0F3E48;
+  --jaipur-sandstone: #F2A93B;
+  --jaipur-marigold: #F2A93B;
+  --jaipur-gold: #F2A93B;
+  --jaipur-gold-soft: #FFF4E5;
+  --jaipur-peacock: #0891B2;
+  --jaipur-peacock-dark: #0E7490;
+  --jaipur-peacock-light: #CCF1F4;
+  
+  /* Backgrounds & Surfaces (Very light #F7FCFD page bg with White cards) */
+  --jaipur-bg: #F7FCFD;           /* Very light #F7FCFD */
+  --jaipur-surface: #FFFFFF;      /* Clean White Card Background */
+  --jaipur-surface-warm: #FFFFFF; /* Inner white panels */
+  --jaipur-card: #FFFFFF;         /* White Card */
+  --jaipur-nav: #CCF1F4;          /* Navigation bar background */
+  --jaipur-border: #E0F2F5;       /* 1px #E0F2F5 border */
+  --jaipur-border-strong: #0891B2;/* Strong Aqua Accent */
+  
+  /* Text (High contrast, WCAG AA compliant) */
+  --jaipur-text: #1F4E5A;         /* Body Text */
+  --jaipur-text-secondary: #3E6B75;/* Secondary / Muted Text */
+  --jaipur-text-muted: #3E6B75;   /* Muted Text (never lighter than #3E6B75) */
+
+  /* Preserved Status Colors (Vibrant & High-Contrast) */
+  --jaipur-pulse-healthy: #16A34A;
+  --jaipur-pulse-moderate: #D97706;
+  --jaipur-pulse-critical: #DC2626;
+
+  --jaali-color: rgba(8, 145, 178, 0.04);
+}
+
+.raat {
+  /* Raat Palette (Pink City Midnight, Deep Maroon & Indigo Nocturne) */
+  --jaipur-pink: #F08B9B;
+  --jaipur-terracotta: #F08B9B;
+  --jaipur-terracotta-deep: #E11D74;
+  --jaipur-terracotta-light: #381124;
+  --jaipur-rani: #FF4081;
+  --jaipur-maroon: #F8C2CE;
+  --jaipur-heading: #FFD1DC;
+  --jaipur-sandstone: #F2A93B;
+  --jaipur-marigold: #F2A93B;
+  --jaipur-gold: #FBBF24;
+  --jaipur-gold-soft: #381C06;
+  --jaipur-peacock: #38BDF8;
+  --jaipur-peacock-dark: #0284C7;
+  --jaipur-peacock-light: #162C3A;
+
+  --jaipur-bg: #1B0714;           /* Deep Maroon / Indigo Nocturne */
+  --jaipur-surface: #280D1F;      /* Rich Deep Maroon Surface */
+  --jaipur-surface-warm: #36142B; /* Warm Deep Maroon */
+  --jaipur-card: #280D1F;         /* Dark Plum-Maroon Ivory counterpart */
+  --jaipur-border: #521E3B;       /* Subdued Maroon Border */
+  --jaipur-border-strong: #8A2D5C;/* Brightened Maroon Border */
+
+  --jaipur-text: #FFF0F5;         /* Soft Luminous Ivory-Rose */
+  --jaipur-text-secondary: #E3B0C4;/* Muted Rose */
+  --jaipur-text-muted: #B37D94;   /* Dim Rose */
+
+  /* High contrast status colors in Raat mode */
+  --jaipur-pulse-healthy: #22C55E;
+  --jaipur-pulse-moderate: #F59E0B;
+  --jaipur-pulse-critical: #EF4444;
+
+  --jaali-color: rgba(240, 139, 155, 0.08);
+}
+
+body {
+  font-family: var(--font-body), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--jaipur-bg);
+  color: var(--jaipur-text);
+  overflow-x: hidden;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display), "Mukta", serif;
+  letter-spacing: 0.02em;
+}
+
+/* Authentic Jharokha Arch top outline */
+.jharokha-arch {
+  position: relative;
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
+}
+
+/* Card Smooth Fade-In Animation */
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-card-fade-in {
+  animation: cardFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Gentle Hover Lift on Desktop */
+@media (min-width: 768px) {
+  .hover-lift {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(15, 62, 72, 0.08);
+  }
+}
+
+/* Minimalist Clean Card base */
+.card-clean {
+  background-color: var(--jaipur-surface);
+  border: 1px solid var(--jaipur-border);
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(15, 62, 72, 0.06);
+}
+
+/* Subtle pattern overlay */
+.bg-jaali-grid {
+  background-image: radial-gradient(var(--jaali-color) 1.5px, transparent 1.5px),
+                    radial-gradient(var(--jaali-color) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+}
+
+/* Hide scrollbar for clean horizontal swipes */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Pulse beacon animation */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(217, 112, 126, 0.6);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(217, 112, 126, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(217, 112, 126, 0);
+  }
+}
+
+.pulse-beacon {
+  animation: pulse-ring 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Custom delicate scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--jaipur-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--jaipur-border-strong);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--jaipur-terracotta);
+}

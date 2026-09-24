@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Remix CityPulse Jaipur – जयपुर की नब्ज़</title>
+    <meta name="description" content="Real-time AI-powered civic pulse, multi-modal incident intelligence, and municipal monitoring platform for the Pink City of Jaipur." />
+    <meta property="og:title" content="Remix CityPulse Jaipur – जयपुर की नब्ज़" />
+    <meta property="og:description" content="Real-time AI-powered civic pulse, multi-modal incident intelligence, and municipal monitoring platform for the Pink City of Jaipur." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;500;600;700;800&family=Rozha+One&display=swap" rel="stylesheet" />
+    <script>
+      // Intercept and handle Google Maps script errors / RefererNotAllowedMapError gracefully
+      window.gm_authFailure = function() {
+        console.warn('[Google Maps] Referrer authorization check required for domain:', window.location.origin);
+        window.dispatchEvent(new CustomEvent('google-maps-auth-failure'));
+      };
+
+      window.addEventListener('error', function(e) {
+        var msg = e && (e.message || '');
+        var file = e && (e.filename || '');
+        if (
+          msg === 'Script error.' ||
+          msg.indexOf('Google Maps') !== -1 ||
+          msg.indexOf('RefererNotAllowedMapError') !== -1 ||
+          file.indexOf('maps.googleapis.com') !== -1
+        ) {
+          console.warn('[Google Maps] Handled cross-origin map authorization notice:', msg);
+          window.dispatchEvent(new CustomEvent('google-maps-auth-failure'));
+          if (e.preventDefault) e.preventDefault();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return true;
+        }
+      }, true);
+    </script>
+  </head>
+  <body class="min-h-screen bg-[var(--jaipur-cream)] text-[var(--jaipur-text)] antialiased transition-colors duration-300">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
