@@ -23,7 +23,13 @@ import {
   Layers,
   Search,
   Eye,
+  Mic,
+  MicOff,
+  Share2,
+  Lock,
 } from 'lucide-react';
+import { redactPII, fuzzLocationCoordinates } from '../utils/privacySanitizer';
+import { checkReportRateLimit, recordReportSubmission } from '../utils/securityRateLimit';
 
 interface CategoryOption {
   id: string;
@@ -117,6 +123,21 @@ const CATEGORY_OPTIONS: CategoryOption[] = [
   },
 ];
 
+const QUICK_REASONS = [
+  { id: 'pothole', hi: 'सड़क पर खतरनाक गड्ढा', en: 'Severe Road Pothole', icon: '🕳️', cat: 'pothole' },
+  { id: 'garbage', hi: 'कचरे का ढेर व बदबू', en: 'Garbage Dump Accumulation', icon: '🗑️', cat: 'garbage' },
+  { id: 'sewage', hi: 'सीवर चोक / गंदा पानी', en: 'Sewage Overflow & Drain Block', icon: '🚯', cat: 'sewage' },
+  { id: 'water_supply', hi: 'पीने के पानी की सप्लाई बंद', en: 'No Water Supply / Low Pressure', icon: '🚰', cat: 'water_supply' },
+  { id: 'streetlight', hi: 'स्ट्रीट लाइट बंद व अंधेरा', en: 'Streetlight Off & Darkness', icon: '💡', cat: 'streetlight' },
+  { id: 'waterlogging', hi: 'सड़क पर जलभराव', en: 'Street Waterlogging', icon: '🌊', cat: 'waterlogging' },
+  { id: 'traffic', hi: 'भीषण ट्रैफिक जाम', en: 'Heavy Traffic Jam', icon: '🚦', cat: 'traffic' },
+  { id: 'stray_cattle', hi: 'आवारा पशुओं का जमावड़ा', en: 'Stray Cattle Blocking Road', icon: '🐄', cat: 'stray_cattle' },
+  { id: 'pipe_leak', hi: 'पाइपलाइन लीकेज व बर्बादी', en: 'Pipeline Burst & Leakage', icon: '💧', cat: 'water_supply' },
+  { id: 'transformer', hi: 'ट्रांसफार्मर स्पार्किंग / खराबी', en: 'Transformer Sparking / Hazard', icon: '⚡', cat: 'power' },
+  { id: 'encroachment', hi: 'अतिक्रमण व मार्ग अवरोध', en: 'Pathway Encroachment', icon: '🚧', cat: 'traffic' },
+  { id: 'noise', hi: 'तेज लाउडस्पीकर शोर', en: 'Loudspeaker Noise Disturbance', icon: '📢', cat: 'noise' },
+];
+
 const SEVERITY_LEVELS: Array<{ id: EventSeverity; labelEn: string; labelHi: string; color: string }> = [
   { id: 'low', labelEn: 'Low', labelHi: 'सामान्य', color: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' },
   { id: 'medium', labelEn: 'Medium', labelHi: 'मध्यम', color: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30' },
@@ -146,6 +167,7 @@ export const ReportIssuePage: React.FC = () => {
 
   // Form states
   const [selectedCategory, setSelectedCategory] = useState<string>('waterlogging');
+  const [reportReason, setReportReason] = useState<string>('');
   const [selectedZoneId, setSelectedZoneId] = useState<string>(userMyAreaZoneId || 'walled-city');
   const [landmark, setLandmark] = useState<string>('');
   const [description, setDescription] = useState<string>('');
@@ -172,6 +194,85 @@ export const ReportIssuePage: React.FC = () => {
   // Submission result modal / banner
   const [submittedReport, setSubmittedReport] = useState<ResidentReport | null>(null);
   const [upvotedIds, setUpvotedIds] = useState<Record<string, boolean>>({});
+  const [isVoiceRecording, setIsVoiceRecording] = useState(false);
+
+  // Web Speech Voice Input Handler (Hindi & English)
+  const handleVoiceInput = () => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert(
+        language === 'hi'
+          ? 'आपका ब्राउज़र वॉइस इनपुट सपोर्ट नहीं करता। कृपया Google Chrome या Microsoft Edge का उपयोग करें।'
+          : 'Voice input is not supported in this browser. Please use Chrome or Edge.'
+      );
+      return;
+    }
+
+    if (isVoiceRecording) {
+      setIsVoiceRecording(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = language === 'hi' ? 'hi-IN' : 'en-IN';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        setIsVoiceRecording(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const text = event.results[0][0].transcript;
+        if (text) {
+          setDescription((prev) => (prev ? `${prev} ${text}` : text).slice(0, 280));
+
+          // Auto-select category based on spoken keywords
+          const lower = text.toLowerCase();
+          if (lower.includes('पानी') || lower.includes('जल') || lower.includes('water') || lower.includes('जलभराव')) {
+            setSelectedCategory('waterlogging');
+          } else if (lower.includes('कचरा') || lower.includes('गंदगी') || lower.includes('garbage') || lower.includes('कूड़ा')) {
+            setSelectedCategory('garbage');
+          } else if (lower.includes('गड्ढा') || lower.includes('सड़क') || lower.includes('pothole') || lower.includes('road')) {
+            setSelectedCategory('pothole');
+          } else if (lower.includes('लाइट') || lower.includes('बिजली') || lower.includes('streetlight') || lower.includes('अंधेरा')) {
+            setSelectedCategory('streetlight');
+          } else if (lower.includes('पशु') || lower.includes('गाय') || lower.includes('cattle') || lower.includes('सांड')) {
+            setSelectedCategory('stray_cattle');
+          } else if (lower.includes('सीवर') || lower.includes('नाली') || lower.includes('sewage')) {
+            setSelectedCategory('sewage');
+          } else if (lower.includes('पाइप') || lower.includes('सप्लाई') || lower.includes('नल')) {
+            setSelectedCategory('water_supply');
+          }
+        }
+      };
+
+      recognition.onerror = () => setIsVoiceRecording(false);
+      recognition.onend = () => setIsVoiceRecording(false);
+
+      recognition.start();
+    } catch {
+      setIsVoiceRecording(false);
+    }
+  };
+
+  // WhatsApp Share Handler
+  const handleShareWhatsApp = (report: ResidentReport) => {
+    const text = encodeURIComponent(
+      `🚨 *Jaipur CityPulse Grievance Report*\n` +
+      `📌 *Ticket ID:* ${report.id}\n` +
+      `📋 *Category:* ${report.category.toUpperCase()}\n` +
+      `📍 *Location:* ${report.landmark || 'Jaipur'}\n` +
+      `📝 *Details:* ${report.description}\n` +
+      `⚡ *Status:* ${report.status.replace('_', ' ').toUpperCase()}\n` +
+      `👍 *Upvotes:* ${report.upvotes}\n` +
+      `🔗 *Track live on CityPulse Jaipur:* ${window.location.origin}`
+    );
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+  };
 
   // Mini Map ref
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -415,6 +516,17 @@ export const ReportIssuePage: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 1. Anti-Spam Rate Limit Check
+    const rateCheck = checkReportRateLimit();
+    if (!rateCheck.allowed) {
+      addToast({
+        title: language === 'hi' ? 'सुरक्षा सीमा (Anti-Spam Alert)' : 'Anti-Spam Security Alert',
+        message: rateCheck.message || 'Please wait before submitting another report.',
+        type: 'warning',
+      });
+      return;
+    }
+
     const catObj = CATEGORY_OPTIONS.find((c) => c.id === selectedCategory) || CATEGORY_OPTIONS[0];
     const zoneObj = JAIPUR_ZONES.find((z) => z.id === selectedZoneId) || JAIPUR_ZONES[0];
 
@@ -422,10 +534,17 @@ export const ReportIssuePage: React.FC = () => {
     const randomTicketNum = Math.floor(10000 + Math.random() * 90000);
     const ticketId = `JPR-2026-${randomTicketNum}`;
 
-    // Apply strict privacy stripping
-    const cleanDescription = sanitizePrivacyText(description.trim()) || `${catObj.nameEn} incident reported at ${landmark || zoneObj.nameEn}`;
-    const cleanLandmark = sanitizePrivacyText(landmark.trim()) || `${zoneObj.nameEn} Sector`;
+    // 2. Strict Privacy Sanitization & PII Redaction
+    const descSanitized = redactPII(description.trim());
+    const cleanDescription =
+      descSanitized.cleanText || `${catObj.nameEn} incident reported at ${landmark || zoneObj.nameEn}`;
+    const cleanLandmark = redactPII(landmark.trim()).cleanText || `${zoneObj.nameEn} Sector`;
     const cleanTitle = `${catObj.nameEn} at ${cleanLandmark.slice(0, 30)}`;
+
+    // 3. Street-level GPS Fuzzing (~11m privacy safeguard)
+    const fuzzedCoords = fuzzLocationCoordinates(coordinates.lat, coordinates.lng);
+
+    const finalReason = reportReason.trim() || `${catObj.nameHi} / ${catObj.nameEn}`;
 
     const newReport: ResidentReport = {
       id: ticketId,
@@ -434,9 +553,10 @@ export const ReportIssuePage: React.FC = () => {
       category: catObj.category,
       rawCategory: catObj.id,
       title: cleanTitle,
+      reason: finalReason,
       description: cleanDescription,
       landmark: cleanLandmark,
-      coordinates,
+      coordinates: fuzzedCoords,
       severity,
       upvotes: 1,
       status: 'submitted',
@@ -444,6 +564,9 @@ export const ReportIssuePage: React.FC = () => {
       assignedDepartment: catObj.defaultDepartment,
       reportedByMe: true,
     };
+
+    // Record submission for rate limiting
+    recordReportSubmission();
 
     // Ingest into store and full pipeline
     addResidentReport(newReport);
@@ -457,6 +580,18 @@ export const ReportIssuePage: React.FC = () => {
     // Reset form
     setDescription('');
     setLandmark('');
+    setReportReason('');
+
+    if (descSanitized.hasRedactions) {
+      addToast({
+        title: language === 'hi' ? 'डेटा निजता सुरक्षा लागू' : 'Privacy Protection Active',
+        message:
+          language === 'hi'
+            ? 'आपके संपर्क विवरण को सार्वजनिक प्रदर्शन से स्वतः मास्क कर दिया गया है।'
+            : 'Personal contact details were automatically masked to protect your privacy.',
+        type: 'info',
+      });
+    }
 
     addToast({
       title: language === 'hi' ? 'शिकायत सफलतापूर्वक दर्ज' : 'Grievance Submitted',
@@ -613,14 +748,23 @@ export const ReportIssuePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-1">
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => handleShareWhatsApp(submittedReport)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              <span>{language === 'hi' ? 'व्हाट्सऐप पर साझा करें' : 'Share on WhatsApp'}</span>
+            </button>
+
             <button
               type="button"
               onClick={() => {
                 setSubmittedReport(null);
                 setActiveView('my_reports');
               }}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-[var(--jaipur-surface-warm)] border border-[var(--jaipur-border)] hover:bg-[var(--jaipur-surface)] text-[var(--jaipur-text)] text-xs font-bold transition-all shadow-xs cursor-pointer"
             >
               {language === 'hi' ? 'मेरी रिपोर्ट सूची में ट्रैक करें →' : 'Track in My Reports →'}
             </button>
@@ -669,11 +813,73 @@ export const ReportIssuePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* 2. Interactive Mini Map & Location Section */}
+              {/* 2. Reason for Report (किस बात के लिए रिपोर्ट है) - ANY LANGUAGE */}
+              <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <label className="block text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded bg-amber-500 text-white text-[10px]">2</span>
+                    <span>{language === 'hi' ? 'रिपोर्ट का कारण (किस बात के लिए रिपोर्ट है?)' : 'Reason for Report (What is this report about?)'}</span>
+                  </label>
+                  <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                    {language === 'hi' ? '✨ किसी भी भाषा में लिखें (हिंदी, English, Hinglish, राजस्थानी)' : '✨ Type in any language (Hindi, English, Hinglish, etc.)'}
+                  </span>
+                </div>
+
+                {/* Quick Reason Chips */}
+                <div>
+                  <span className="text-[11px] text-[var(--jaipur-text-secondary)] font-medium mb-1.5 block">
+                    {language === 'hi' ? 'त्वरित कारण चुनें (Quick Select):' : 'Quick Select Reason:'}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {QUICK_REASONS.map((qr) => {
+                      const isChosen = reportReason === (language === 'hi' ? qr.hi : qr.en);
+                      return (
+                        <button
+                          type="button"
+                          key={qr.id}
+                          onClick={() => {
+                            setReportReason(language === 'hi' ? qr.hi : qr.en);
+                            setSelectedCategory(qr.cat);
+                          }}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                            isChosen
+                              ? 'bg-amber-500 text-white border-amber-600 shadow-xs scale-105'
+                              : 'bg-[var(--jaipur-card)] text-[var(--jaipur-text)] border-[var(--jaipur-border)] hover:border-amber-500/50 hover:bg-amber-500/5'
+                          }`}
+                        >
+                          <span>{qr.icon}</span>
+                          <span>{language === 'hi' ? qr.hi : qr.en}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Custom / Editable Reason Input in any language */}
+                <div>
+                  <label className="block text-[11px] font-bold text-[var(--jaipur-text)] mb-1">
+                    {language === 'hi' ? 'कारण लिखें या संपादित करें (Editable in any language):' : 'Enter or Edit exact reason (Any language):'}
+                  </label>
+                  <input
+                    type="text"
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    placeholder={
+                      language === 'hi'
+                        ? 'उदा. "सड़क पर गहरा गड्ढा" या "Kachra 3 din se nahi uthaya" या "Water pipe leaking" या "भीषण ट्रैफिक"'
+                        : 'e.g. "Severe pothole on main road" or "Kachra nahi utha" or "No drinking water since morning"'
+                    }
+                    className="w-full px-3.5 py-2.5 rounded-xl border-2 border-amber-500/50 bg-[var(--jaipur-surface)] text-[var(--jaipur-text)] text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 shadow-xs"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* 3. Interactive Mini Map & Location Section */}
               <div className="space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <label className="block text-xs font-bold uppercase tracking-wider text-[var(--jaipur-text-secondary)]">
-                    2. {language === 'hi' ? 'स्थान चुनें (मानचित्र पर टैप करें अथवा GPS का उपयोग करें)' : 'Location (Tap mini map or use GPS)'}
+                    3. {language === 'hi' ? 'स्थान चुनें (मानचित्र पर टैप करें अथवा GPS का उपयोग करें)' : 'Location (Tap mini map or use GPS)'}
                   </label>
                   <button
                     type="button"
@@ -805,21 +1011,36 @@ export const ReportIssuePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* 3. Description (max 280 chars) */}
+              {/* 4. Description (max 280 chars) */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-bold uppercase tracking-wider text-[var(--jaipur-text-secondary)]">
-                    3. {language === 'hi' ? 'समस्या का विवरण (अधिकतम 280 अक्षर)' : 'Description (Max 280 chars)'}
+                    4. {language === 'hi' ? 'समस्या का विस्तृत विवरण (अधिकतम 280 अक्षर)' : 'Detailed Description (Max 280 chars)'}
                   </label>
-                  <span
-                    className={`text-[11px] font-mono ${
-                      description.length > 260
-                        ? 'text-rose-500 font-bold'
-                        : 'text-[var(--jaipur-text-muted)]'
-                    }`}
-                  >
-                    {description.length} / 280
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleVoiceInput}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs ${
+                        isVoiceRecording
+                          ? 'bg-rose-600 text-white animate-pulse ring-2 ring-rose-400'
+                          : 'bg-[var(--jaipur-terracotta)]/15 text-[var(--jaipur-terracotta)] hover:bg-[var(--jaipur-terracotta)]/25 border border-[var(--jaipur-terracotta)]/30'
+                      }`}
+                      title={language === 'hi' ? 'बोलकर विवरण भरें (हिंदी / English)' : 'Voice Input (Hindi / English)'}
+                    >
+                      {isVoiceRecording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                      <span>{isVoiceRecording ? (language === 'hi' ? 'सुन रहे हैं...' : 'Listening...') : (language === 'hi' ? 'बोलकर लिखें' : 'Voice Input')}</span>
+                    </button>
+                    <span
+                      className={`text-[11px] font-mono ${
+                        description.length > 260
+                          ? 'text-rose-500 font-bold'
+                          : 'text-[var(--jaipur-text-muted)]'
+                      }`}
+                    >
+                      {description.length} / 280
+                    </span>
+                  </div>
                 </div>
                 <textarea
                   rows={3}
@@ -945,6 +1166,21 @@ export const ReportIssuePage: React.FC = () => {
                     key={report.id}
                     className="rounded-2xl border border-[var(--jaipur-border)] bg-[var(--jaipur-surface)] p-5 space-y-4 shadow-xs hover:border-[var(--jaipur-terracotta)]/40 transition-colors"
                   >
+                    {/* VERY TOP: REASON FOR REPORT (किस बात के लिए रिपोर्ट है) - ANY LANGUAGE */}
+                    <div className="w-full px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-orange-500/15 border-l-4 border-l-amber-500 border border-amber-500/30 flex items-center justify-between gap-2 shadow-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500 text-white font-extrabold text-[10px] uppercase tracking-wider shrink-0 shadow-xs">
+                          {language === 'hi' ? 'रिपोर्ट का कारण' : 'REASON FOR REPORT'}
+                        </span>
+                        <span className="font-bold text-xs sm:text-sm text-[var(--jaipur-text)] truncate" title={report.reason || report.title}>
+                          {report.reason || report.title}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold text-[var(--jaipur-terracotta)] bg-white/70 dark:bg-black/30 px-2 py-0.5 rounded shrink-0">
+                        {report.id}
+                      </span>
+                    </div>
+
                     {/* Header */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[var(--jaipur-border)]">
                       <div className="flex items-center gap-2">
@@ -956,6 +1192,10 @@ export const ReportIssuePage: React.FC = () => {
                             </span>
                             <span className="text-xs font-semibold text-[var(--jaipur-text)]">
                               {language === 'hi' ? catInfo.nameHi : catInfo.nameEn}
+                            </span>
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                              <ShieldCheck className="h-2.5 w-2.5" />
+                              <span>{language === 'hi' ? 'गोपनीयता सुरक्षित' : 'Privacy Protected'}</span>
                             </span>
                           </div>
                           <span className="text-[11px] text-[var(--jaipur-text-muted)] flex items-center gap-1 mt-0.5">
@@ -1028,6 +1268,16 @@ export const ReportIssuePage: React.FC = () => {
                           <span>
                             {report.upvotes + (isUpvoted ? 1 : 0)} {language === 'hi' ? 'समर्थन' : 'Upvotes'}
                           </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleShareWhatsApp(report)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-xs"
+                          title={language === 'hi' ? 'व्हाट्सऐप पर भेजें' : 'Share on WhatsApp'}
+                        >
+                          <Share2 className="h-3 w-3" />
+                          <span className="hidden sm:inline">WhatsApp</span>
                         </button>
                       </div>
                     </div>

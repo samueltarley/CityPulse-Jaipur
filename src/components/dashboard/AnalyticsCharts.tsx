@@ -18,13 +18,13 @@ import {
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAppStore } from '../../store/useAppStore';
 import { JAIPUR_ZONES } from '../../config/city';
-import { BarChart3, TrendingUp, Activity, Layers, Calendar } from 'lucide-react';
+import { BarChart3, TrendingUp, Activity, Layers, Calendar, Database } from 'lucide-react';
 
 type ChartView = 'all' | 'stacked_sources' | 'aqi_zones' | 'pulse_history';
 
 export const AnalyticsCharts: React.FC = () => {
   const { language } = useLanguage();
-  const { pulseMetrics, events, zoneWeatherAQI } = useAppStore();
+  const { pulseMetrics, events, zoneWeatherAQI, setIsDatabaseArchiveOpen } = useAppStore();
   const [activeView, setActiveView] = useState<ChartView>('all');
 
   // 1. Prepare Stacked Area Data: Events per source in last 2 hours
@@ -158,6 +158,16 @@ export const AnalyticsCharts: React.FC = () => {
             }`}
           >
             Event Streams
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsDatabaseArchiveOpen(true)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold border transition-colors cursor-pointer bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25 ml-1"
+            title="Open Persistent Database Archives"
+          >
+            <Database className="h-3 w-3" />
+            <span>{language === 'hi' ? 'डेटाबेस आर्काइव' : 'Database Archives'}</span>
           </button>
         </div>
       </div>

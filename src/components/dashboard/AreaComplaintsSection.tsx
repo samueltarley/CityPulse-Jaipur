@@ -215,50 +215,10 @@ export const AreaComplaintsSection: React.FC = () => {
   const [customReplyTexts, setCustomReplyTexts] = useState<Record<string, string>>({});
   const [showCustomBox, setShowCustomBox] = useState<Record<string, boolean>>({});
 
-  // Build Unified Complaints List (residentReports + simulated citizen complaints from events)
+  // Build Unified Complaints List (Strictly Real Citizen & City Reports)
   const unifiedComplaints = useMemo(() => {
-    const list: Array<ResidentReport & { isSimulatedComplaint?: boolean }> = [...residentReports];
-
-    // Merge simulated citizen complaint events if not represented
-    const existingTicketIds = new Set(residentReports.map((r) => r.id));
-
-    events.forEach((evt) => {
-      const isComplaintSource =
-        evt.source === 'resident_report' ||
-        evt.source === 'smart_city_ai' ||
-        evt.category === 'sanitation' ||
-        evt.category === 'water' ||
-        evt.category === 'power' ||
-        evt.category === 'traffic';
-
-      const simulatedTicketId = evt.metadata?.ticketId
-        ? (evt.metadata.ticketId as string)
-        : `JPR-2026-S${evt.id.replace(/[^0-9]/g, '').slice(-4) || '1024'}`;
-
-      if (isComplaintSource && !existingTicketIds.has(simulatedTicketId)) {
-        existingTicketIds.add(simulatedTicketId);
-        const mappedCategory = evt.category === 'water' ? 'waterlogging' : evt.category;
-        list.push({
-          id: simulatedTicketId,
-          timestamp: evt.timestamp,
-          zoneId: evt.zoneId,
-          category: evt.category,
-          rawCategory: mappedCategory,
-          title: evt.titleEn.replace(/^Citizen Report \([^)]+\):\s*/, ''),
-          description: evt.descriptionEn,
-          landmark: evt.locationName || 'Jaipur Central',
-          upvotes: 1,
-          status: evt.status === 'resolved' ? 'resolved' : 'submitted',
-          isAnonymous: true,
-          assignedDepartment: 'Jaipur Municipal Corporation',
-          reportedByMe: false,
-          isSimulatedComplaint: true,
-        });
-      }
-    });
-
-    return list;
-  }, [residentReports, events]);
+    return residentReports;
+  }, [residentReports]);
 
   // Filter complaints based on top controls
   const filteredComplaints = useMemo(() => {
@@ -418,6 +378,29 @@ export const AreaComplaintsSection: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* REAL REPORTS & PRIVACY SAFEGUARD BANNER */}
+      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-teal-500/10 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="font-bold flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
+              <span>{language === 'hi' ? 'वास्तविक शहर रिपोर्ट मंच • 100% डेटा गोपनीयता लागू' : 'Real City Grievance Console • 100% Privacy Safeguarded'}</span>
+            </div>
+            <p className="text-[11px] text-[#3E6B75] dark:text-[#E3B0C4] mt-0.5">
+              {language === 'hi'
+                ? 'डेमो व कृत्रिम शिकायतें बंद हैं। सभी रिपोर्ट वास्तविक नागरिकों व नगर निगम कार्य से हैं, जिनमें फोन नंबर, नाम व सटीक घर के निर्देशांक स्वतः सुरक्षित (PII Masked & Fuzzed) हैं।'
+                : 'Demo reports are disabled. All grievances are real citizen & municipal entries with masked contact PII and street-fuzzed coordinates.'}
+            </p>
+          </div>
+        </div>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold text-xs shrink-0 border border-emerald-500/30">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>{language === 'hi' ? 'गोपनीयता सक्रिय' : 'Strict Privacy On'}</span>
+        </div>
+      </div>
+
       {/* 1. TOP FILTERS BAR */}
       <div className="p-4 rounded-2xl bg-white dark:bg-[#280D1F] border border-[#CCF1F4] dark:border-[#521E3B] shadow-[0_2px_8px_rgba(15,62,72,0.06)] dark:shadow-none space-y-3">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -612,6 +595,21 @@ export const AreaComplaintsSection: React.FC = () => {
                               : 'border-[#E0F2F5] dark:border-[#521E3B] bg-white dark:bg-[#280D1F] hover:border-[#0891B2]/50'
                           }`}
                         >
+                          {/* VERY TOP: REASON FOR REPORT (किस बात के लिए रिपोर्ट है) - ANY LANGUAGE */}
+                          <div className="w-full px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-orange-500/15 border-l-4 border-l-amber-500 border border-amber-500/30 flex items-center justify-between gap-2 shadow-xs">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="px-2 py-0.5 rounded-md bg-amber-500 text-white font-extrabold text-[10px] uppercase tracking-wider shrink-0 shadow-xs">
+                                {language === 'hi' ? 'रिपोर्ट का कारण' : 'REASON FOR REPORT'}
+                              </span>
+                              <span className="font-bold text-xs sm:text-sm text-[#0F3E48] dark:text-[#FDE2EC] truncate" title={report.reason || report.title}>
+                                {report.reason || report.title}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-mono font-bold text-[#0891B2] bg-white/70 dark:bg-black/30 px-2 py-0.5 rounded shrink-0">
+                              {report.id}
+                            </span>
+                          </div>
+
                           {/* TOP CARD ROW: Ticket ID, Anonymous Resident ID, Source, Status */}
                           <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[#E0F2F5] dark:border-[#521E3B]">
                             <div className="flex items-center gap-2">
@@ -639,9 +637,10 @@ export const AreaComplaintsSection: React.FC = () => {
                                 <span>{language === 'hi' ? 'दर्जकर्ता: ' : 'Filed by: '}{anonymousResidentId}</span>
                               </span>
 
-                              {/* Source Badge */}
-                              <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                                {report.isSimulatedComplaint ? (language === 'hi' ? 'नागरिक शिकायत' : 'Citizen Complaint') : (language === 'hi' ? 'ऐप रिपोर्ट' : 'App Report')}
+                              {/* Source Badge with Privacy */}
+                              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                                <ShieldCheck className="h-2.5 w-2.5 text-emerald-600" />
+                                <span>{language === 'hi' ? 'गोपनीयता सुरक्षित' : 'Privacy Protected'}</span>
                               </span>
                             </div>
 

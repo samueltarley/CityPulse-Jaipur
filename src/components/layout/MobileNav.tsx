@@ -8,11 +8,12 @@ import {
   FileText,
   History,
   Info,
+  HeartHandshake,
 } from 'lucide-react';
 
 export const MobileNav: React.FC = () => {
   const { language } = useLanguage();
-  const { activeTab, setActiveTab, role } = useAppStore();
+  const { activeTab, setActiveTab } = useAppStore();
 
   const navItems: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     {
@@ -21,19 +22,20 @@ export const MobileNav: React.FC = () => {
       icon: LayoutDashboard,
     },
     {
+      id: 'public_help',
+      label: language === 'hi' ? 'जन-सेवा' : 'Help',
+      icon: HeartHandshake,
+    },
+    {
+      id: 'report',
+      label: language === 'hi' ? 'रिपोर्ट' : 'Report',
+      icon: FileText,
+    },
+    {
       id: 'staff',
-      label: language === 'hi' ? 'कंसोल' : 'Console',
+      label: language === 'hi' ? 'कंसोल' : 'Staff',
       icon: ShieldCheck,
     },
-    ...(role !== 'staff' && activeTab !== 'staff'
-      ? [
-          {
-            id: 'report' as TabId,
-            label: language === 'hi' ? 'रिपोर्ट' : 'Report',
-            icon: FileText,
-          },
-        ]
-      : []),
     {
       id: 'replay',
       label: language === 'hi' ? 'रीप्ले' : 'Replay',
@@ -47,8 +49,8 @@ export const MobileNav: React.FC = () => {
   ];
 
   return (
-    <nav aria-label="Mobile Navigation" className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#E0F2F5] dark:border-[#521E3B] bg-[#CCF1F4]/95 dark:bg-[#280D1F]/95 backdrop-blur-md px-4 py-2 transition-colors duration-300 shadow-lg">
-      <div className="flex items-center justify-around">
+    <nav aria-label="Mobile Navigation" className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#E0F2F5] dark:border-[#521E3B] bg-[#CCF1F4]/95 dark:bg-[#280D1F]/95 backdrop-blur-md px-1 py-1.5 transition-colors duration-300 shadow-lg">
+      <div className="flex items-center justify-between w-full max-w-lg mx-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -59,20 +61,28 @@ export const MobileNav: React.FC = () => {
               onClick={() => setActiveTab(item.id)}
               aria-current={isActive ? 'page' : undefined}
               aria-label={item.label}
-              className={`flex flex-col items-center justify-center py-1 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-[#0891B2] focus-visible:outline-none ${
+              className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all cursor-pointer select-none focus-visible:outline-none ${
                 isActive
-                  ? 'text-[#0F3E48] dark:text-[#FFD1DC]'
+                  ? 'text-[#0891B2] dark:text-[#FFD1DC]'
                   : 'text-[#1F4E5A] dark:text-[#E3B0C4] hover:text-[#0F3E48]'
               }`}
             >
-              <div className={`relative p-2 rounded-xl transition-all ${
-                isActive
-                  ? 'bg-[#0891B2] text-white shadow-sm'
-                  : 'text-current opacity-85'
-              }`}>
-                <Icon className="h-5 w-5" />
+              <div
+                className={`flex items-center justify-center p-1.5 rounded-xl transition-all ${
+                  isActive
+                    ? 'bg-[#0891B2] text-white shadow-xs scale-105'
+                    : 'text-current opacity-80'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
               </div>
-              <span className="mt-1 truncate max-w-[80px] font-medium">{item.label}</span>
+              <span
+                className={`mt-0.5 text-[10px] leading-tight truncate w-full text-center tracking-tight ${
+                  isActive ? 'font-bold text-[#0891B2] dark:text-[#FFD1DC]' : 'font-medium'
+                }`}
+              >
+                {item.label}
+              </span>
             </button>
           );
         })}

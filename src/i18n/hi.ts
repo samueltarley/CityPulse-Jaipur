@@ -10,6 +10,7 @@ export const hi: Record<TranslationKey, string> = {
   // Navigation
   navDashboard: 'पल्स डैशबोर्ड',
   navReport: 'समस्या दर्ज करें',
+  navPublicHelp: 'जन-सहायता केंद्र',
   navStaffConsole: 'निगम कंसोल',
   navReplay: 'रीप्ले व परिदृश्य',
   navAbout: 'सिटीपल्स परिचय',

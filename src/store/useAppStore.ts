@@ -30,6 +30,12 @@ import { detectCorrelations } from '../engine/correlation';
 import { detectGrievanceClusters } from '../engine/clustering';
 import { JAIPUR_ZONES } from '../config/city';
 import { getShortProblemText } from '../utils/alertUtils';
+import {
+  saveCitizenReportToFirestore,
+  updateCitizenReportInFirestore,
+  archivePulseSnapshotToFirestore,
+  archiveCivicEventsToFirestore,
+} from '../services/firebase';
 
 const MAX_EVENT_STORE_SIZE = 3000;
 
@@ -104,6 +110,13 @@ interface AppState {
   isAgentRunning: boolean;
   isAgentThinking: boolean;
   highlightedEventIds: string[];
+
+  // Database Archive & Historical Records
+  isDatabaseArchiveOpen: boolean;
+
+  // Privacy & Security Charter
+  isPrivacyModalOpen: boolean;
+  setIsPrivacyModalOpen: (open: boolean) => void;
 
   // Historical Replay & Demo (Spec 8.5)
   isReplayMode: boolean;
@@ -206,6 +219,12 @@ interface AppState {
   setIsAgentRunning: (running: boolean) => void;
   setIsAgentThinking: (thinking: boolean) => void;
   addAgentCycleLog: (log: AgentCycleLog) => void;
+
+  // Database Archive & Firestore Sync Actions
+  setIsDatabaseArchiveOpen: (open: boolean) => void;
+  mergeResidentReports: (incomingReports: ResidentReport[]) => void;
+  archiveCurrentPulse: () => Promise<boolean>;
+  archiveEventsToDatabase: () => Promise<number>;
 }
 
 export const useAppStore = create<AppState>((set, get) => {
@@ -418,6 +437,8 @@ export const useAppStore = create<AppState>((set, get) => {
     userMyAreaZoneId: 'mansarovar',
     isStaffAuthModalOpen: false,
     staffUsername: null,
+    isDatabaseArchiveOpen: false,
+    isPrivacyModalOpen: false,
 
     pulseMetrics: initialPulseMetrics,
 
@@ -445,573 +466,7 @@ export const useAppStore = create<AppState>((set, get) => {
     anomalies: [],
     clusters: [],
     agentFlags: [],
-    residentReports: [
-      {
-        id: 'JPR-2026-00089',
-        timestamp: now - 35 * 60 * 1000,
-        zoneId: 'walled-city',
-        category: 'sanitation',
-        rawCategory: 'garbage',
-        title: 'Garbage Dump Accumulation',
-        description: 'Secondary garbage container overflowing near Johari Bazar crossroad, spreading into roadway.',
-        landmark: 'Johari Bazar, near Badi Chaupar',
-        coordinates: { lat: 26.9239, lng: 75.8267 },
-        severity: 'high',
-        status: 'in_progress',
-        isAnonymous: true,
-        upvotes: 6,
-        assignedDepartment: 'Jaipur Municipal Corporation (Heritage)',
-        assignedTeam: 'JMC Sanitation',
-        expectedTime: '4 hrs',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-1',
-            timestamp: now - 35 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-2',
-            timestamp: now - 28 * 60 * 1000,
-            status: 'considered',
-            messageEn: 'We have received your complaint and it is under review.',
-            messageHi: 'हमें आपकी शिकायत प्राप्त हो गई है और यह समीक्षाधीन है।',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-3',
-            timestamp: now - 20 * 60 * 1000,
-            status: 'team_sent',
-            messageEn: 'A JMC Sanitation team has been sent to solve the problem. Expected time: 4 hrs.',
-            messageHi: 'समस्या के समाधान के लिए JMC Sanitation टीम भेज दी गई है। अपेक्षित समय: 4 hrs।',
-            team: 'JMC Sanitation',
-            expectedTime: '4 hrs',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-4',
-            timestamp: now - 10 * 60 * 1000,
-            status: 'in_progress',
-            messageEn: 'Work has started on your complaint.',
-            messageHi: 'आपकी शिकायत पर कार्य प्रारंभ हो चुका है।',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-      {
-        id: 'JPR-2026-00092',
-        timestamp: now - 45 * 60 * 1000,
-        zoneId: 'sanganer',
-        category: 'water',
-        rawCategory: 'waterlogging',
-        title: 'Underpass Severe Waterlogging',
-        description: 'Rainwater stagnation up to 1.5 feet beneath Sanganer railway underpass restricting light vehicular movement.',
-        landmark: 'Sanganer Railway Crossing Underpass',
-        coordinates: { lat: 26.8167, lng: 75.7833 },
-        severity: 'critical',
-        status: 'team_sent',
-        isAnonymous: true,
-        upvotes: 12,
-        assignedDepartment: 'PHED & JMC Drainage Wing',
-        assignedTeam: 'PHED Water',
-        expectedTime: '1 hr',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-10',
-            timestamp: now - 45 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-11',
-            timestamp: now - 30 * 60 * 1000,
-            status: 'considered',
-            messageEn: 'We have received your complaint and it is under review.',
-            messageHi: 'हमें आपकी शिकायत प्राप्त हो गई है और यह समीक्षाधीन है।',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-12',
-            timestamp: now - 15 * 60 * 1000,
-            status: 'team_sent',
-            messageEn: 'A PHED Water team has been sent to solve the problem. Expected time: 1 hr.',
-            messageHi: 'समस्या के समाधान के लिए PHED Water टीम भेज दी गई है। अपेक्षित समय: 1 hr।',
-            team: 'PHED Water',
-            expectedTime: '1 hr',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-      {
-        id: 'JPR-2026-00095',
-        timestamp: now - 70 * 60 * 1000,
-        zoneId: 'vaishali-nagar',
-        category: 'traffic',
-        rawCategory: 'pothole',
-        title: 'Deep Asphalt Pothole on Amrapali Marg',
-        description: 'Hazardous cave-in and potholes on the left carriage way causing two-wheeler skids.',
-        landmark: 'Near National Handloom, Amrapali Marg',
-        coordinates: { lat: 26.9067, lng: 75.7412 },
-        severity: 'medium',
-        status: 'submitted',
-        isAnonymous: true,
-        upvotes: 4,
-        assignedDepartment: 'Jaipur Development Authority (JDA)',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-20',
-            timestamp: now - 70 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-      {
-        id: 'JPR-2026-00078',
-        timestamp: now - 180 * 60 * 1000,
-        zoneId: 'raja-park',
-        category: 'power',
-        rawCategory: 'streetlight',
-        title: 'Streetlights Inoperative on Lane 4',
-        description: 'Continuous blackout of 5 street lamp poles creating safety concerns after 8 PM.',
-        landmark: 'Dhruv Marg, Lane 4, Raja Park',
-        coordinates: { lat: 26.8967, lng: 75.8344 },
-        severity: 'low',
-        status: 'resolved',
-        resolutionNote: 'JVVNL Luminaire Maintenance crew replaced blown capacitor and verified illumination at 22:15.',
-        resolvedAt: now - 40 * 60 * 1000,
-        isAnonymous: true,
-        upvotes: 2,
-        assignedDepartment: 'JVVNL Street Lighting Cell',
-        assignedTeam: 'JVVNL Power',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-30',
-            timestamp: now - 180 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-31',
-            timestamp: now - 120 * 60 * 1000,
-            status: 'considered',
-            messageEn: 'We have received your complaint and it is under review.',
-            messageHi: 'हमें आपकी शिकायत प्राप्त हो गई है और यह समीक्षाधीन है।',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-32',
-            timestamp: now - 75 * 60 * 1000,
-            status: 'team_sent',
-            messageEn: 'A JVVNL Power team has been sent to solve the problem. Expected time: Today.',
-            messageHi: 'समस्या के समाधान के लिए JVVNL Power टीम भेज दी गई है। अपेक्षित समय: Today।',
-            team: 'JVVNL Power',
-            expectedTime: 'Today',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-33',
-            timestamp: now - 40 * 60 * 1000,
-            status: 'resolved',
-            messageEn: 'Your complaint has been resolved. JVVNL Luminaire Maintenance crew replaced blown capacitor and verified illumination.',
-            messageHi: 'आपकी शिकायत का निवारण कर दिया गया है। JVVNL Luminaire Maintenance crew replaced blown capacitor and verified illumination.',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-      {
-        id: 'JPR-2026-00101',
-        timestamp: now - 110 * 60 * 1000,
-        zoneId: 'walled-city',
-        category: 'water',
-        rawCategory: 'waterlogging',
-        title: 'Tripolia Bazar Drainage Blockage',
-        description: 'Heavy water stagnation outside shops causing customer inconvenience.',
-        landmark: 'Tripolia Bazar near Choti Chaupar',
-        coordinates: { lat: 26.9242, lng: 75.8235 },
-        severity: 'high',
-        status: 'considered',
-        isAnonymous: true,
-        upvotes: 8,
-        assignedDepartment: 'JMC Sewerage & Drainage Wing',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-40',
-            timestamp: now - 110 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-41',
-            timestamp: now - 60 * 60 * 1000,
-            status: 'considered',
-            messageEn: 'We have received your complaint and it is under review.',
-            messageHi: 'हमें आपकी शिकायत प्राप्त हो गई है और यह समीक्षाधीन है।',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-      {
-        id: 'JPR-2026-00104',
-        timestamp: now - 130 * 60 * 1000,
-        zoneId: 'mansarovar',
-        category: 'sanitation',
-        rawCategory: 'stray_cattle',
-        title: 'Herd of Stray Cattle on Main Road',
-        description: 'Around 8 stray cows blocking the crossing near Shipra Path market.',
-        landmark: 'Shipra Path near VT Road market',
-        coordinates: { lat: 26.8584, lng: 75.7672 },
-        severity: 'medium',
-        status: 'team_sent',
-        isAnonymous: true,
-        upvotes: 5,
-        assignedDepartment: 'JMC Animal Management Wing',
-        assignedTeam: 'Animal Control',
-        expectedTime: 'Today',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-50',
-            timestamp: now - 130 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-51',
-            timestamp: now - 90 * 60 * 1000,
-            status: 'team_sent',
-            messageEn: 'An Animal Control team has been sent to solve the problem. Expected time: Today.',
-            messageHi: 'समस्या के समाधान के लिए Animal Control टीम भेज दी गई है। अपेक्षित समय: Today।',
-            team: 'Animal Control',
-            expectedTime: 'Today',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-      {
-        id: 'JPR-2026-00108',
-        timestamp: now - 150 * 60 * 1000,
-        zoneId: 'malviya-nagar',
-        category: 'sanitation',
-        rawCategory: 'sewage',
-        title: 'Sewage Chamber Overflowing',
-        description: 'Foul-smelling effluent bubbling onto footpath outside commercial complex.',
-        landmark: 'Sector 3 Commercial Hub near Calgiri Road',
-        coordinates: { lat: 26.8541, lng: 75.8175 },
-        severity: 'high',
-        status: 'in_progress',
-        isAnonymous: true,
-        upvotes: 9,
-        assignedDepartment: 'JMC Sewerage & Drainage Wing',
-        assignedTeam: 'JMC Sanitation',
-        expectedTime: '4 hrs',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-60',
-            timestamp: now - 150 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-61',
-            timestamp: now - 80 * 60 * 1000,
-            status: 'in_progress',
-            messageEn: 'Work has started on your complaint.',
-            messageHi: 'आपकी शिकायत पर कार्य प्रारंभ हो चुका है।',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-      {
-        id: 'JPR-2026-00112',
-        timestamp: now - 90 * 60 * 1000,
-        zoneId: 'amer',
-        category: 'traffic',
-        rawCategory: 'traffic',
-        title: 'Tourist Bus Gridlock at Amer Stand',
-        description: 'Vehicles blocking both lanes near the Amer Fort entrance parking.',
-        landmark: 'Amer Fort elephant stand & bus depot',
-        coordinates: { lat: 26.9855, lng: 75.8513 },
-        severity: 'critical',
-        status: 'team_sent',
-        isAnonymous: true,
-        upvotes: 15,
-        assignedDepartment: 'Jaipur City Police & Traffic Division',
-        assignedTeam: 'Traffic Police',
-        expectedTime: '1 hr',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-70',
-            timestamp: now - 90 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-71',
-            timestamp: now - 35 * 60 * 1000,
-            status: 'team_sent',
-            messageEn: 'A Traffic Police team has been sent to solve the problem. Expected time: 1 hr.',
-            messageHi: 'समस्या के समाधान के लिए Traffic Police टीम भेज दी गई है। अपेक्षित समय: 1 hr।',
-            team: 'Traffic Police',
-            expectedTime: '1 hr',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-      {
-        id: 'JPR-2026-00115',
-        timestamp: now - 210 * 60 * 1000,
-        zoneId: 'jagatpura',
-        category: 'water',
-        rawCategory: 'water_supply',
-        title: 'Pipeline Low Pressure & Dry Lines',
-        description: 'Sector 7 residents experiencing complete water supply cut off since morning.',
-        landmark: 'Near Mahal Road flyover sector 7',
-        coordinates: { lat: 26.8285, lng: 75.8458 },
-        severity: 'high',
-        status: 'submitted',
-        isAnonymous: true,
-        upvotes: 7,
-        assignedDepartment: 'Public Health Engineering Dept (PHED)',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-80',
-            timestamp: now - 210 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-      {
-        id: 'JPR-2026-00119',
-        timestamp: now - 50 * 60 * 1000,
-        zoneId: 'cscheme-civillines',
-        category: 'crowd',
-        rawCategory: 'noise',
-        title: 'Loudspeakers Exceeding Decibel Limits',
-        description: 'Unauthorized commercial speaker stacks operating beyond permitted hours.',
-        landmark: 'Panch Batti crossroad near MI Road',
-        coordinates: { lat: 26.9142, lng: 75.8021 },
-        severity: 'medium',
-        status: 'considered',
-        isAnonymous: true,
-        upvotes: 3,
-        assignedDepartment: 'Jaipur City Police & RSPCB',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-90',
-            timestamp: now - 50 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-91',
-            timestamp: now - 20 * 60 * 1000,
-            status: 'considered',
-            messageEn: 'We have received your complaint and it is under review.',
-            messageHi: 'हमें आपकी शिकायत प्राप्त हो गई है और यह समीक्षाधीन है।',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-      {
-        id: 'JPR-2026-00122',
-        timestamp: now - 260 * 60 * 1000,
-        zoneId: 'mansarovar',
-        category: 'power',
-        rawCategory: 'power',
-        title: 'Transformer Sparking and Fluctuations',
-        description: 'Distribution box throwing sparks during peak evening load.',
-        landmark: 'Madhyam Marg near Galaxy Cinema',
-        coordinates: { lat: 26.8522, lng: 75.7615 },
-        severity: 'high',
-        status: 'in_progress',
-        isAnonymous: true,
-        upvotes: 11,
-        assignedDepartment: 'JVVNL & JMC Street Lighting Cell',
-        assignedTeam: 'JVVNL Power',
-        expectedTime: 'Today',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-100',
-            timestamp: now - 260 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-101',
-            timestamp: now - 180 * 60 * 1000,
-            status: 'in_progress',
-            messageEn: 'Work has started on your complaint.',
-            messageHi: 'आपकी शिकायत पर कार्य प्रारंभ हो चुका है।',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-      {
-        id: 'JPR-2026-00125',
-        timestamp: now - 140 * 60 * 1000,
-        zoneId: 'sanganer',
-        category: 'sanitation',
-        rawCategory: 'garbage',
-        title: 'Textile Waste Dump on Riverbed',
-        description: 'Illegal dumping of dry cloth rags and plastic wrapping along Sanganer nullah.',
-        landmark: 'Kagzi Mohalla craft center',
-        coordinates: { lat: 26.8124, lng: 75.7791 },
-        severity: 'high',
-        status: 'team_sent',
-        isAnonymous: true,
-        upvotes: 8,
-        assignedDepartment: 'Jaipur Municipal Corporation (Greater)',
-        assignedTeam: 'JMC Sanitation',
-        expectedTime: 'Today',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-110',
-            timestamp: now - 140 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-111',
-            timestamp: now - 80 * 60 * 1000,
-            status: 'team_sent',
-            messageEn: 'A JMC Sanitation team has been sent to solve the problem. Expected time: Today.',
-            messageHi: 'समस्या के समाधान के लिए JMC Sanitation टीम भेज दी गई है। अपेक्षित समय: Today।',
-            team: 'JMC Sanitation',
-            expectedTime: 'Today',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-      {
-        id: 'JPR-2026-00128',
-        timestamp: now - 320 * 60 * 1000,
-        zoneId: 'walled-city',
-        category: 'traffic',
-        rawCategory: 'pothole',
-        title: 'Cave-in near Kishanpole Stone Pavement',
-        description: 'Sunken stone slab posing severe hazard for cyclists and pedestrians.',
-        landmark: 'Kishanpole Bazar lane 2',
-        coordinates: { lat: 26.9205, lng: 75.8198 },
-        severity: 'medium',
-        status: 'submitted',
-        isAnonymous: true,
-        upvotes: 4,
-        assignedDepartment: 'Jaipur Development Authority (JDA)',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-120',
-            timestamp: now - 320 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-      {
-        id: 'JPR-2026-00130',
-        timestamp: now - 400 * 60 * 1000,
-        zoneId: 'malviya-nagar',
-        category: 'sanitation',
-        rawCategory: 'garbage',
-        title: 'Litter Box Overflow Cleared',
-        description: 'Community dustbin cleared and surrounding area sprayed with disinfectant.',
-        landmark: 'Pradhan Marg corner container',
-        coordinates: { lat: 26.8556, lng: 75.8212 },
-        severity: 'low',
-        status: 'resolved',
-        resolutionNote: 'Sanitation vehicle cleared 1.2 metric tons of waste and sanitized container base.',
-        resolvedAt: now - 120 * 60 * 1000,
-        isAnonymous: true,
-        upvotes: 5,
-        assignedDepartment: 'Jaipur Municipal Corporation (Greater)',
-        assignedTeam: 'JMC Sanitation',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-130',
-            timestamp: now - 400 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-          {
-            id: 'tl-131',
-            timestamp: now - 120 * 60 * 1000,
-            status: 'resolved',
-            messageEn: 'Your complaint has been resolved. Sanitation vehicle cleared 1.2 metric tons of waste and sanitized container base.',
-            messageHi: 'आपकी शिकायत का निवारण कर दिया गया है। Sanitation vehicle cleared 1.2 metric tons of waste and sanitized container base.',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-      {
-        id: 'JPR-2026-00133',
-        timestamp: now - 30 * 60 * 1000,
-        zoneId: 'amer',
-        category: 'water',
-        rawCategory: 'waterlogging',
-        title: 'Highway Service Lane Inundation',
-        description: 'Drainage culvert choked with debris causing water to pool on service lane.',
-        landmark: 'Delhi Bypass intersection near Kunda',
-        coordinates: { lat: 26.9922, lng: 75.8601 },
-        severity: 'high',
-        status: 'submitted',
-        isAnonymous: true,
-        upvotes: 6,
-        assignedDepartment: 'JMC & Drainage Division',
-        reportedByMe: false,
-        timeline: [
-          {
-            id: 'tl-140',
-            timestamp: now - 30 * 60 * 1000,
-            status: 'submitted',
-            messageEn: 'Complaint submitted by citizen.',
-            messageHi: 'नागरिक द्वारा शिकायत दर्ज की गई।',
-            staffName: 'STARKTECH',
-          },
-        ],
-      },
-    ],
+    residentReports: [],
 
     citySummary: {
       en: 'Pink City rhythm is Calm (79/100) with all major sectors including the Pink Line Metro and power grid operating normally. Weather and air quality remain within steady seasonal baselines across most wards.',
@@ -1355,6 +810,11 @@ export const useAppStore = create<AppState>((set, get) => {
         },
       };
 
+      // 3. Persist citizen report to Firestore database
+      saveCitizenReportToFirestore(report).catch((err) => {
+        console.warn('[Firebase] Background citizen report save error:', err);
+      });
+
       set((state) => {
         const nextReports = [report, ...state.residentReports];
         const nextEvents = [civicEvent, ...state.events].slice(0, MAX_EVENT_STORE_SIZE);
@@ -1457,6 +917,14 @@ export const useAppStore = create<AppState>((set, get) => {
             timeline: [...currentTimeline, newEntry],
           };
         });
+
+        // Sync status to Firestore in the background
+        const targetReport = updated.find((r) => r.id === reportId);
+        if (targetReport) {
+          updateCitizenReportInFirestore(reportId, targetReport).catch((err) => {
+            console.warn('[Firebase] Report status sync error:', err);
+          });
+        }
 
         // Add resident notification toast only when in resident mode
         if (state.role !== 'staff') {
@@ -1637,6 +1105,95 @@ export const useAppStore = create<AppState>((set, get) => {
           residentReports: updated,
         };
       });
+    },
+
+    setIsDatabaseArchiveOpen: (open: boolean) => {
+      set({ isDatabaseArchiveOpen: open });
+    },
+
+    setIsPrivacyModalOpen: (open: boolean) => {
+      set({ isPrivacyModalOpen: open });
+    },
+
+    mergeResidentReports: (incomingReports: ResidentReport[]) => {
+      if (!incomingReports || incomingReports.length === 0) return;
+      set((state) => {
+        const existingMap = new Map<string, ResidentReport>();
+        // Add existing reports
+        state.residentReports.forEach((r) => existingMap.set(r.id, r));
+        // Merge incoming reports from Firestore
+        incomingReports.forEach((r) => existingMap.set(r.id, r));
+
+        const merged = Array.from(existingMap.values()).sort((a, b) => b.timestamp - a.timestamp);
+
+        // Convert any new resident reports into CivicEvents if not already present
+        const existingEvtIds = new Set(state.events.map((e) => e.id));
+        const newCivicEvents: CivicEvent[] = [];
+
+        merged.forEach((rep) => {
+          const evtId = `evt-resident-${rep.id}`;
+          if (!existingEvtIds.has(evtId)) {
+            newCivicEvents.push({
+              id: evtId,
+              timestamp: rep.timestamp,
+              timestampIST: new Date(rep.timestamp).toLocaleTimeString('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+              }) + ' IST',
+              zoneId: rep.zoneId,
+              category: rep.category,
+              severity: rep.severity || 'medium',
+              titleEn: `Citizen Report (${rep.id}): ${rep.title}`,
+              titleHi: `नागरिक शिकायत (${rep.id}): ${rep.title}`,
+              descriptionEn: rep.description,
+              descriptionHi: rep.description,
+              locationName: rep.landmark || 'Jaipur City',
+              coordinates: rep.coordinates || { lat: 26.9124, lng: 75.7873 },
+              source: 'resident_report',
+              status: 'active',
+              metadata: {
+                ticketId: rep.id,
+                origin: 'live_api',
+              },
+            });
+          }
+        });
+
+        const updatedEvents = newCivicEvents.length > 0
+          ? deduplicateEvents([...newCivicEvents, ...state.events]).slice(0, MAX_EVENT_STORE_SIZE)
+          : state.events;
+
+        const updatedPulse = calculateCityPulse(
+          updatedEvents,
+          state.zoneWeatherAQI,
+          state.feedStatuses,
+          state.pulseMetrics.pulseHistory
+        );
+        const updatedAnomalies = detectAnomalies(updatedEvents, state.zoneWeatherAQI);
+        const updatedCorrelations = detectCorrelations(updatedAnomalies, updatedEvents, state.zoneWeatherAQI);
+        const updatedClusters = detectGrievanceClusters(updatedEvents);
+
+        return {
+          residentReports: merged,
+          events: updatedEvents,
+          pulseMetrics: updatedPulse,
+          anomalies: updatedAnomalies,
+          correlations: updatedCorrelations,
+          clusters: updatedClusters,
+        };
+      });
+    },
+
+    archiveCurrentPulse: async () => {
+      const { pulseMetrics } = get();
+      return archivePulseSnapshotToFirestore(pulseMetrics);
+    },
+
+    archiveEventsToDatabase: async () => {
+      const { events } = get();
+      return archiveCivicEventsToFirestore(events);
     },
 
     setStaffThresholds: (thresholds: Partial<StaffThresholds>) => {

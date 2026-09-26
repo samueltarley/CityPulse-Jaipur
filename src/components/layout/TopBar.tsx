@@ -14,6 +14,15 @@ import {
   Bell,
   Play,
   Square,
+  Database,
+  Menu,
+  X,
+  HeartHandshake,
+  LayoutDashboard,
+  FileText,
+  History,
+  Info,
+  ChevronRight,
 } from 'lucide-react';
 import { demoScenarioRunner } from '../../replay/demoScenarioRunner';
 import { replayController } from '../../replay/replayController';
@@ -23,6 +32,7 @@ export const TopBar: React.FC = () => {
   const {
     role,
     setRole,
+    activeTab,
     setActiveTab,
     theme,
     toggleTheme,
@@ -34,9 +44,11 @@ export const TopBar: React.FC = () => {
     events,
     activeDemoScenarioId,
     isReplayMode,
+    setIsDatabaseArchiveOpen,
   } = useAppStore();
 
   const isDemoRunning = Boolean(activeDemoScenarioId);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleDemoToggle = () => {
     if (isDemoRunning) {
@@ -183,19 +195,14 @@ export const TopBar: React.FC = () => {
           <PulseBadge />
         </div>
 
-        {/* Right Controls: Role Switcher, Language Toggle, Day/Raat */}
-        <div className="flex items-center gap-1 sm:gap-2 flex-nowrap shrink-0 max-w-full">
-          {/* Mobile Pulse Badge (Compact) */}
-          <div className="lg:hidden shrink-0">
-            <PulseBadge compact />
-          </div>
-
+        {/* Right Controls: Desktop View (>= 1024px) */}
+        <div className="hidden lg:flex items-center gap-2 flex-nowrap shrink-0">
           {/* Role Switcher Pill */}
-          <div className="flex items-center rounded-xl bg-black/20 p-0.5 sm:p-1 border border-white/20 backdrop-blur-sm shrink-0">
+          <div className="flex items-center rounded-xl bg-black/20 p-1 border border-white/20 backdrop-blur-sm shrink-0">
             <button
               type="button"
               onClick={() => setRole('resident')}
-              className={`flex items-center gap-1 px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 role === 'resident'
                   ? 'bg-white text-[#0891B2] shadow-md'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
@@ -203,8 +210,7 @@ export const TopBar: React.FC = () => {
               title={t('roleResident')}
             >
               <User className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">{t('roleResident')}</span>
-              <span className="md:hidden text-[10px] sm:text-xs">नागरिक</span>
+              <span>{t('roleResident')}</span>
             </button>
             <button
               type="button"
@@ -214,7 +220,7 @@ export const TopBar: React.FC = () => {
                   setIsStaffAuthModalOpen(true);
                 }
               }}
-              className={`flex items-center gap-1 px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 role === 'staff'
                   ? 'bg-[#F2A93B] text-[#0891B2] shadow-md'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
@@ -222,10 +228,9 @@ export const TopBar: React.FC = () => {
               title={role === 'staff' ? `Logged in: ${staffUsername || 'STARKTECH'}` : t('roleStaff')}
             >
               <ShieldCheck className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">
+              <span>
                 {role === 'staff' && staffUsername ? staffUsername : t('roleStaff')}
               </span>
-              <span className="md:hidden text-[10px] sm:text-xs">निगम</span>
             </button>
           </div>
 
@@ -233,7 +238,7 @@ export const TopBar: React.FC = () => {
           <button
             type="button"
             onClick={handleDemoToggle}
-            className={`flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs border shrink-0 ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs border shrink-0 ${
               isDemoRunning
                 ? 'bg-rose-600 border-rose-400 text-white animate-pulse'
                 : 'bg-amber-500/25 hover:bg-amber-500/35 border-amber-300/50 text-amber-100 hover:text-white'
@@ -243,12 +248,12 @@ export const TopBar: React.FC = () => {
             {isDemoRunning ? (
               <>
                 <Square className="h-3.5 w-3.5 fill-current shrink-0" />
-                <span className="hidden sm:inline whitespace-nowrap">{t('stopDemo')}</span>
+                <span className="whitespace-nowrap">{t('stopDemo')}</span>
               </>
             ) : (
               <>
                 <Play className="h-3.5 w-3.5 fill-current shrink-0" />
-                <span className="hidden sm:inline whitespace-nowrap">{t('demoMonsoonFlood')}</span>
+                <span className="whitespace-nowrap">{t('demoMonsoonFlood')}</span>
               </>
             )}
           </button>
@@ -273,16 +278,29 @@ export const TopBar: React.FC = () => {
             )}
           </button>
 
+          {/* Firestore Database Archives Button */}
+          <button
+            type="button"
+            onClick={() => setIsDatabaseArchiveOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-white/30 bg-white/15 backdrop-blur-sm text-xs font-bold text-white hover:bg-white/25 transition-all cursor-pointer shadow-xs shrink-0"
+            title={language === 'hi' ? 'डेटाबेस ऐतिहासिक रिकॉर्ड्स (पुराना डेटा)' : 'Database Historical Archives (Old Telemetry & Pulse)'}
+          >
+            <Database className="h-3.5 w-3.5 text-[#F2A93B] shrink-0" />
+            <span className="text-xs">
+              {language === 'hi' ? 'डेटाबेस' : 'DB Archive'}
+            </span>
+          </button>
+
           {/* Language Toggle (EN | हिंदी) */}
           <button
             type="button"
             onClick={toggleLanguage}
-            className="flex items-center gap-1 px-2 py-1 rounded-xl border border-white/30 bg-white/15 backdrop-blur-sm text-xs font-bold text-white hover:bg-white/25 transition-all cursor-pointer shadow-xs shrink-0"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-xl border border-white/30 bg-white/15 backdrop-blur-sm text-xs font-bold text-white hover:bg-white/25 transition-all cursor-pointer shadow-xs shrink-0"
             aria-label="Toggle language"
             title={`Switch to ${language === 'en' ? 'हिंदी' : 'English'}`}
           >
             <Languages className="h-3.5 w-3.5 text-[#F2A93B] shrink-0" />
-            <span className="text-[11px] sm:text-xs">{language === 'en' ? 'हिंदी' : 'EN'}</span>
+            <span className="text-xs">{language === 'en' ? 'हिंदी' : 'EN'}</span>
           </button>
 
           {/* Day / Raat Theme Toggle */}
@@ -300,7 +318,189 @@ export const TopBar: React.FC = () => {
             )}
           </button>
         </div>
+
+        {/* Right Controls: Compact Mobile & Tablet View (< 1024px) */}
+        <div className="flex lg:hidden items-center gap-1.5 shrink-0">
+          <PulseBadge compact />
+
+          {/* Live Alerts Bell */}
+          <button
+            type="button"
+            onClick={toggleLiveAlerts}
+            className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-white/30 bg-white/15 backdrop-blur-sm text-white hover:bg-white/25 transition-all cursor-pointer shadow-xs"
+            aria-label="Toggle Alerts"
+          >
+            <Bell className="h-4 w-4" />
+            {activeAlertsCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white shadow-xs">
+                {activeAlertsCount > 9 ? '9+' : activeAlertsCount}
+              </span>
+            )}
+          </button>
+
+          {/* Language Toggle */}
+          <button
+            type="button"
+            onClick={toggleLanguage}
+            className="flex items-center gap-1 px-2 py-1 rounded-xl border border-white/30 bg-white/15 backdrop-blur-sm text-xs font-bold text-white hover:bg-white/25 transition-all cursor-pointer shadow-xs"
+            aria-label="Toggle Language"
+          >
+            <span className="text-[11px] font-bold">{language === 'en' ? 'हिंदी' : 'EN'}</span>
+          </button>
+
+          {/* Mobile All-Tools & Navigation Drawer Button */}
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className={`flex items-center justify-center h-8 w-8 rounded-xl border transition-all cursor-pointer shadow-xs ${
+              isMobileMenuOpen
+                ? 'bg-white text-[#0891B2] border-white shadow-md'
+                : 'border-white/30 bg-white/20 text-white hover:bg-white/30'
+            }`}
+            aria-label="Toggle Mobile Menu"
+            title="All Tools & Navigation"
+          >
+            {isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
+
+      {/* Mobile Drawer (Accessible on all screens when menu is toggled) */}
+      {isMobileMenuOpen && (
+        <div className="lg:hidden relative z-50 border-t border-white/20 bg-[#0891B2]/95 dark:bg-[#1C0816]/95 backdrop-blur-xl px-4 py-4 space-y-4 animate-in slide-in-from-top-2 duration-200 text-white shadow-2xl">
+          {/* 1. Operational Mode Switcher (नागरिक vs निगम) */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-white/70">
+              {language === 'hi' ? 'कार्यप्रणाली (Operational Mode)' : 'Select Mode'}
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRole('resident');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  role === 'resident'
+                    ? 'bg-white text-[#0891B2] shadow-md ring-2 ring-[#F2A93B]'
+                    : 'bg-white/15 text-white hover:bg-white/25'
+                }`}
+              >
+                <User className="h-4 w-4" />
+                <span>{language === 'hi' ? 'नागरिक मोड' : 'Resident Mode'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('staff');
+                  setIsMobileMenuOpen(false);
+                  if (role !== 'staff') {
+                    setIsStaffAuthModalOpen(true);
+                  }
+                }}
+                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  role === 'staff'
+                    ? 'bg-[#F2A93B] text-[#0891B2] shadow-md ring-2 ring-white'
+                    : 'bg-white/15 text-white hover:bg-white/25'
+                }`}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                <span>{language === 'hi' ? 'नगर निगम मोड' : 'Staff Console'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 2. Quick Utilities: DB Archive, Crisis Demo, Day/Raat */}
+          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/15 text-xs">
+            {/* Database Archive */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                setIsDatabaseArchiveOpen(true);
+              }}
+              className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-all cursor-pointer text-center"
+            >
+              <Database className="h-4 w-4 text-[#F2A93B]" />
+              <span className="text-[10px] font-bold">
+                {language === 'hi' ? 'डेटाबेस आर्काइव' : 'DB Archive'}
+              </span>
+            </button>
+
+            {/* Crisis Demo */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                handleDemoToggle();
+              }}
+              className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all cursor-pointer text-center ${
+                isDemoRunning
+                  ? 'bg-rose-600 text-white animate-pulse'
+                  : 'bg-white/15 hover:bg-white/25 text-white'
+              }`}
+            >
+              {isDemoRunning ? <Square className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 text-amber-300" />}
+              <span className="text-[10px] font-bold">
+                {isDemoRunning ? 'Stop Demo' : (language === 'hi' ? 'बाढ़ सिमुलेशन' : 'Flood Demo')}
+              </span>
+            </button>
+
+            {/* Day / Raat Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                toggleTheme();
+              }}
+              className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-all cursor-pointer text-center"
+            >
+              {theme === 'day' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4 text-[#F2A93B]" />}
+              <span className="text-[10px] font-bold">
+                {theme === 'day' ? (language === 'hi' ? 'रात मोड' : 'Raat Mode') : (language === 'hi' ? 'दिन मोड' : 'Day Mode')}
+              </span>
+            </button>
+          </div>
+
+          {/* 3. Direct Navigation to all 6 Main Tabs */}
+          <div className="space-y-1 pt-2 border-t border-white/15">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-white/70 block mb-1">
+              {language === 'hi' ? 'मुख्य पृष्ठ व सुविधाएं' : 'All App Pages & Features'}
+            </span>
+            <div className="grid grid-cols-2 gap-1.5">
+              {[
+                { id: 'dashboard', nameEn: 'Pulse Dashboard', nameHi: 'पल्स डैशबोर्ड', icon: LayoutDashboard },
+                { id: 'public_help', nameEn: 'Citizen Care & SOS', nameHi: 'जन-सहायता केंद्र', icon: HeartHandshake },
+                { id: 'report', nameEn: 'Report Issue', nameHi: 'समस्या दर्ज करें', icon: FileText },
+                { id: 'staff', nameEn: 'Staff Console', nameHi: 'निगम कंसोल', icon: ShieldCheck },
+                { id: 'replay', nameEn: 'Replay & Scenarios', nameHi: 'रीप्ले व परिदृश्य', icon: History },
+                { id: 'about', nameEn: 'About CityPulse', nameHi: 'सिटीपल्स परिचय', icon: Info },
+              ].map((tabItem) => {
+                const TabIcon = tabItem.icon;
+                const isSelected = activeTab === tabItem.id;
+                return (
+                  <button
+                    key={tabItem.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveTab(tabItem.id as any);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-2 p-2 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+                      isSelected
+                        ? 'bg-white text-[#0891B2] shadow-sm'
+                        : 'bg-white/10 hover:bg-white/20 text-white'
+                    }`}
+                  >
+                    <TabIcon className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{language === 'hi' ? tabItem.nameHi : tabItem.nameEn}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

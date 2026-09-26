@@ -10,6 +10,7 @@ import { ResidentReport, ResidentReportStatus } from '../types';
 import { formatDateTimeIST } from '../utils/dateFormat';
 import {
   ShieldAlert,
+  ShieldCheck,
   Building2,
   Download,
   AlertTriangle,
@@ -1252,6 +1253,21 @@ export const StaffConsolePage: React.FC = () => {
                         : 'border-[#CCF1F4] dark:border-[#521E3B] bg-white dark:bg-[#280D1F] hover:border-[#0891B2]/40'
                     }`}
                   >
+                    {/* VERY TOP: REASON FOR REPORT (किस बात के लिए रिपोर्ट है) - ANY LANGUAGE */}
+                    <div className="w-full px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-orange-500/15 border-l-4 border-l-amber-500 border border-amber-500/30 flex items-center justify-between gap-2 shadow-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500 text-white font-extrabold text-[10px] uppercase tracking-wider shrink-0 shadow-xs">
+                          {language === 'hi' ? 'रिपोर्ट का कारण' : 'REASON FOR REPORT'}
+                        </span>
+                        <span className="font-bold text-xs sm:text-sm text-[#0F3E48] dark:text-[#FFD1DC] truncate" title={report.reason || report.title}>
+                          {report.reason || report.title}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold text-[#0891B2] bg-white/70 dark:bg-black/30 px-2 py-0.5 rounded shrink-0">
+                        {report.id}
+                      </span>
+                    </div>
+
                     {/* Top Row: Checkbox, Ticket ID, Category, Area, Status, Pending Time */}
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
@@ -1283,6 +1299,12 @@ export const StaffConsolePage: React.FC = () => {
                         <span className="text-xs font-bold text-[#0F3E48] dark:text-[#FFD1DC] flex items-center gap-1">
                           <MapPin className="h-3 w-3 text-[#0891B2]" />
                           <span>{language === 'hi' ? zoneObj?.nameHi : zoneObj?.nameEn || report.zoneId}</span>
+                        </span>
+
+                        {/* Privacy Safeguard Badge */}
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                          <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                          <span>{language === 'hi' ? 'गोपनीयता सुरक्षित' : 'Privacy Protected'}</span>
                         </span>
 
                         {/* Status Badge */}

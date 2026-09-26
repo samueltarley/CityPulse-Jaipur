@@ -7,7 +7,7 @@ export type UserRole = 'resident' | 'staff';
 export type Language = 'en' | 'hi';
 export type ThemeMode = 'day' | 'raat';
 
-export type TabId = 'dashboard' | 'report' | 'staff' | 'replay' | 'about';
+export type TabId = 'dashboard' | 'report' | 'public_help' | 'staff' | 'replay' | 'about';
 
 export type EventOrigin = 'live_api' | 'simulated' | 'simulated_fallback';
 export type FeedHealthStatus = 'live' | 'delayed' | 'offline' | 'fallback';
@@ -209,6 +209,7 @@ export interface ResidentReport {
   category: EventCategory;
   rawCategory?: string;
   title: string;
+  reason?: string; // Reason for report (किस बात के लिए रिपोर्ट है - in any language: Hindi, English, Hinglish, Rajasthani etc.)
   description: string;
   landmark: string;
   coordinates?: Coordinates;

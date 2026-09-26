@@ -10,11 +10,11 @@ import { AnalyticsCharts } from '../components/dashboard/AnalyticsCharts';
 import { ZoneDetailDrawer } from '../components/dashboard/ZoneDetailDrawer';
 import { EventTicker } from '../components/verification/EventTicker';
 import { SectionHeading } from '../components/theme/SectionHeading';
-import { ChevronDown, ChevronUp, BarChart2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, BarChart2, PhoneCall, HeartHandshake, ShieldAlert, Ambulance } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
   const { language } = useLanguage();
-  const { setSelectedZoneId } = useAppStore();
+  const { setSelectedZoneId, setActiveTab } = useAppStore();
   const [showMoreDetails, setShowMoreDetails] = useState<boolean>(false);
 
   React.useEffect(() => {
@@ -36,6 +36,67 @@ export const DashboardPage: React.FC = () => {
     <div className="space-y-12 pb-16">
       {/* 1. City Pulse Heartbeat */}
       <HeroPulseCard />
+
+      {/* 2. Public Care & Emergency Quick Access Bar */}
+      <div className="rounded-2xl border border-[var(--jaipur-border)] bg-[var(--jaipur-surface)] p-3 sm:p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-rose-600 text-white shadow-xs shrink-0">
+            <HeartHandshake className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[var(--jaipur-text)] uppercase tracking-wider">
+                {language === 'hi' ? 'नागरिक सहायता व आपातकालीन सेवाएं' : 'Citizen Care & Emergency SOS'}
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-bold">
+                24x7 Active
+              </span>
+            </div>
+            <p className="text-[11px] text-[var(--jaipur-text-muted)]">
+              {language === 'hi'
+                ? 'त्वरित कॉल: पुलिस (112), संपर्क (181), एम्बुलेंस (108), बिजली फॉल्ट (1912)'
+                : 'One-tap dial: Police (112), Sampark (181), Ambulance (108), Power (1912)'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href="tel:112"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+            title="Dial Police / All-in-One 112"
+          >
+            <ShieldAlert className="h-3.5 w-3.5" />
+            <span>112 SOS</span>
+          </a>
+
+          <a
+            href="tel:108"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+            title="Dial Ambulance 108"
+          >
+            <Ambulance className="h-3.5 w-3.5" />
+            <span>108 Medical</span>
+          </a>
+
+          <a
+            href="tel:181"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+            title="Dial Sampark 181"
+          >
+            <PhoneCall className="h-3.5 w-3.5" />
+            <span>181 Sampark</span>
+          </a>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('public_help')}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--jaipur-surface-warm)] border border-[var(--jaipur-border)] text-xs font-bold text-[var(--jaipur-terracotta)] hover:bg-[var(--jaipur-surface)] transition-all cursor-pointer shadow-xs"
+          >
+            <span>{language === 'hi' ? 'संपूर्ण जन-सहायता केंद्र →' : 'Public Care Hub →'}</span>
+          </button>
+        </div>
+      </div>
 
       {/* 3. Live City Map */}
       <div id="city-pulse-map">

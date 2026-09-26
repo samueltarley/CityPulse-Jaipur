@@ -8,6 +8,7 @@ export const en = {
   // Navigation
   navDashboard: 'Pulse Dashboard',
   navReport: 'Report an Issue',
+  navPublicHelp: 'Citizen Care & SOS',
   navStaffConsole: 'Staff Console',
   navReplay: 'Replay & Scenarios',
   navAbout: 'About CityPulse',

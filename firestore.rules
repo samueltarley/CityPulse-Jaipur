@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper validation functions
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    // 1. Pulse history: public read; write restricted to valid numeric telemetry
+    match /pulse_history/{docId} {
+      allow read: if true;
+      allow write: if request.resource.data.timestamp is number
+                   && request.resource.data.pulseScore is number
+                   && request.resource.data.pulseScore >= 0
+                   && request.resource.data.pulseScore <= 100;
+    }
+
+    // 2. Civic event archive: public read; write strictly validated
+    match /civic_events_archive/{docId} {
+      allow read: if true;
+      allow write: if request.resource.data.timestamp is number
+                   && isValidString(request.resource.data.category, 2, 50)
+                   && isValidString(request.resource.data.zoneId, 2, 50);
+    }
+
+    // 3. Citizen reports: public read; creation validated; updates constrained; deletion disallowed
+    match /citizen_reports/{docId} {
+      allow read: if true;
+      allow create: if isValidString(request.resource.data.title, 3, 200)
+                    && isValidString(request.resource.data.zoneId, 2, 60)
+                    && isValidString(request.resource.data.category, 2, 60)
+                    && request.resource.data.timestamp is number
+                    && (request.resource.data.description == null || isValidString(request.resource.data.description, 0, 1000));
+      // Ensure existing critical fields cannot be tampered with on update
+      allow update: if request.resource.data.id == resource.data.id
+                    && request.resource.data.zoneId == resource.data.zoneId
+                    && request.resource.data.timestamp == resource.data.timestamp;
+      allow delete: if false;
+    }
+
+    // 4. System metadata: read allowed; write strictly validated
+    match /system_metadata/{docId} {
+      allow read: if true;
+      allow write: if request.resource.data.updatedAt is number;
+    }
+  }
+}

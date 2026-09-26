@@ -1,0 +1,71 @@
+{
+  "entities": {
+    "PulseSnapshot": {
+      "title": "Pulse Snapshot",
+      "description": "Historical record of Jaipur city-wide and zonal pulse scores over time.",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "number", "description": "Timestamp in milliseconds" },
+        "pulseScore": { "type": "number", "description": "Overall city pulse score (0-100)" },
+        "band": { "type": "string", "description": "Vital band (e.g. Optimal, Strained, Critical)" },
+        "zoneScores": { "type": "array", "description": "Zonal pulse scores" },
+        "metrics": { "type": "object", "description": "Individual metric breakdowns" },
+        "recordedAt": { "type": "string", "description": "ISO timestamp string" }
+      },
+      "required": ["timestamp", "pulseScore", "band"]
+    },
+    "CivicEventArchive": {
+      "title": "Civic Event Archive",
+      "description": "Historical log of civic events, traffic incidents, power outages, and weather telemetry.",
+      "type": "object",
+      "properties": {
+        "eventId": { "type": "string" },
+        "zoneId": { "type": "string" },
+        "category": { "type": "string" },
+        "severity": { "type": "string" },
+        "titleEn": { "type": "string" },
+        "titleHi": { "type": "string" },
+        "descriptionEn": { "type": "string" },
+        "descriptionHi": { "type": "string" },
+        "locationName": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "source": { "type": "string" }
+      },
+      "required": ["eventId", "zoneId", "category", "timestamp"]
+    },
+    "CitizenReport": {
+      "title": "Citizen Grievance Report",
+      "description": "Resident reports and grievances filed for Jaipur zones.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "zoneId": { "type": "string" },
+        "category": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "locationName": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "urgency": { "type": "string" },
+        "status": { "type": "string" },
+        "upvotes": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "zoneId", "category", "title", "createdAt"]
+    }
+  },
+  "firestore": {
+    "pulse_history": {
+      "entity": "PulseSnapshot",
+      "description": "Collection of historical city pulse scores"
+    },
+    "civic_events_archive": {
+      "entity": "CivicEventArchive",
+      "description": "Collection of archived historical civic events"
+    },
+    "citizen_reports": {
+      "entity": "CitizenReport",
+      "description": "Collection of citizen grievances"
+    }
+  }
+}
